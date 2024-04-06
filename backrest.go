@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"errors"
 	"flag"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"syscall"
@@ -31,9 +33,19 @@ import (
 )
 
 var InstallDepsOnly = flag.Bool("install-deps-only", false, "install dependencies and exit")
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 func main() {
 	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
 	resticPath, err := resticinstaller.FindOrInstallResticBinary()
 	if err != nil {
