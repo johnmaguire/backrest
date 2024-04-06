@@ -1,0 +1,6 @@
+<Include>
+    <?define ManufacturerName = "George Gareth" ?>
+    <?define FullManufacturerName = "George Gareth" ?>
+    <?define ProductName = "Backrest" ?>
+    <?define AppName = "Backrest" ?>
+</Include>
