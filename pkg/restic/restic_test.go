@@ -3,8 +3,11 @@ package restic
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -12,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/garethgeorge/backrest/internal/resticinstaller"
 	"github.com/garethgeorge/backrest/test/helpers"
 )
 
@@ -114,6 +118,86 @@ func TestResticBackup(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkResticBackup(b *testing.B) {
+	binPath, err := resticinstaller.FindOrInstallResticBinary()
+	if err != nil {
+		b.Fatalf("find restic binary: %v", err)
+	}
+
+	// create 2G of test data
+	dir := b.TempDir()
+	f, err := os.CreateTemp(dir, "2G-data")
+	if err != nil {
+		b.Fatalf("failed to create test data file: %v", err)
+	}
+	defer os.Remove(f.Name())
+
+	// generate and write 2G of data from random
+	rr := io.LimitReader(rand.Reader, 2*1024*1024*1024)
+	if _, err := io.Copy(f, rr); err != nil {
+		b.Fatalf("failed to write 2G of data: %v", err)
+	}
+	f.Close()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		// teset setup
+		b.StopTimer()
+
+		// create a fresh repo for each test
+		repo := b.TempDir()
+		r := NewRepo(binPath, repo, WithFlags("--no-cache"), WithEnv("RESTIC_PASSWORD=test"))
+		if err := r.Init(context.Background()); err != nil {
+			b.Fatalf("failed to init repo: %v", err)
+		}
+
+		// start test
+		b.StartTimer()
+
+		_, err = r.Backup(context.Background(), []string{dir}, func(event *BackupProgressEntry) {})
+		if err != nil {
+			b.Fatalf("unexpected error: %v", err)
+		}
+	}
+}
+
+// RecursiveChmod recursively changes the permissions of a directory and its contents
+func RecursiveChmod(path string, mode os.FileMode) error {
+	// Change permissions of the directory itself
+	err := os.Chmod(path, mode)
+	if err != nil {
+		return err
+	}
+
+	// Read the directory
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	// Iterate over directory entries
+	for _, entry := range entries {
+		entryPath := filepath.Join(path, entry.Name())
+
+		// If the entry is a directory, recursively change its permissions
+		if entry.IsDir() {
+			err = RecursiveChmod(entryPath, mode)
+			if err != nil {
+				return err
+			}
+		} else {
+			// If the entry is a file, change its permissions
+			err = os.Chmod(entryPath, mode)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func TestResticPartialBackup(t *testing.T) {
