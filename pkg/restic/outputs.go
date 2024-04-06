@@ -108,6 +108,7 @@ func readBackupProgressEntries(ctx context.Context, cmd *exec.Cmd, output io.Rea
 		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
 			var bytes = slices.Clone(scanner.Bytes())
 			for scanner.Scan() {
+				bytes = append(bytes, []byte("\n")...)
 				bytes = append(bytes, scanner.Bytes()...)
 			}
 
@@ -257,6 +258,7 @@ func readRestoreProgressEntries(ctx context.Context, cmd *exec.Cmd, output io.Re
 		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
 			var bytes = slices.Clone(scanner.Bytes())
 			for scanner.Scan() {
+				bytes = append(bytes, []byte("\n")...)
 				bytes = append(bytes, scanner.Bytes()...)
 			}
 

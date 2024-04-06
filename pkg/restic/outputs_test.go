@@ -3,6 +3,7 @@ package restic
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
 	"testing"
 )
@@ -25,6 +26,28 @@ func TestReadBackupProgressEntries(t *testing.T) {
 	}
 	if summary.TotalFilesProcessed != 166 {
 		t.Errorf("wanted 166 files processed, got: %d", summary.TotalFilesProcessed)
+	}
+}
+
+func TestReadBackupProgressEntries_InvalidJSON(t *testing.T) {
+	t.Parallel()
+	testInput := `this is line 1
+	this is line 2`
+
+	b := bytes.NewBuffer([]byte(testInput))
+
+	_, err := readBackupProgressEntries(context.Background(), &exec.Cmd{
+		Path: "restic",
+		Args: []string{"backup", "/tmp"},
+	}, b, func(event *BackupProgressEntry) {
+		t.Logf("event: %v", event)
+	})
+	cmdErr := &CmdError{}
+	if !errors.As(err, &cmdErr) {
+		t.Fatalf("wanted CmdError, got: %+v", err)
+	}
+	if cmdErr.Output != testInput {
+		t.Errorf("wanted output: %q, got: %q", testInput, cmdErr.Output)
 	}
 }
 
