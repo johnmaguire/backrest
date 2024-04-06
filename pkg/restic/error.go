@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-const outputBufferLimit = 1000
+const outputBufferLimit = 4096
 
 type CmdError struct {
 	Command string
